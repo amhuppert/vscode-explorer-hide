@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.vsix
+bun.lock
+
+memory-bank/focus.md
+.vscode/settings.json

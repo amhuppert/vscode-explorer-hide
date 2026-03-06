@@ -1,0 +1,191 @@
+{
+  "name": "explorer-hide-presets",
+  "displayName": "Explorer Hide Presets",
+  "description": "Hide files and folders in Explorer using named presets",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "test": "bun test",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "esbuild": "^0.20.0",
+    "@types/bun": "latest"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "Explorer Hide Presets",
+      "properties": {
+        "explorerHidePresets.presets": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "description": "Preset definitions for hiding files and folders in Explorer"
+        },
+        "explorerHidePresets.filesExcludeBackup": {
+          "type": "object",
+          "default": null,
+          "scope": "resource",
+          "description": "Backup of the original files.exclude setting before the extension took control"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "explorerHidePresets.hideInExplorer",
+        "title": "Hide in Explorer"
+      },
+      {
+        "command": "explorerHidePresets.hideInPreset",
+        "title": "Hide in Preset..."
+      },
+      {
+        "command": "explorerHidePresets.unhideInExplorer",
+        "title": "Unhide in Explorer"
+      },
+      {
+        "command": "explorerHidePresets.createPreset",
+        "title": "Create Preset",
+        "icon": "$(add)"
+      },
+      {
+        "command": "explorerHidePresets.renamePreset",
+        "title": "Rename Preset"
+      },
+      {
+        "command": "explorerHidePresets.deletePreset",
+        "title": "Delete Preset"
+      },
+      {
+        "command": "explorerHidePresets.enablePreset",
+        "title": "Enable Preset",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "explorerHidePresets.disablePreset",
+        "title": "Disable Preset",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "explorerHidePresets.switchToPreset",
+        "title": "Switch to Preset"
+      },
+      {
+        "command": "explorerHidePresets.addGlobRule",
+        "title": "Add Glob Rule"
+      },
+      {
+        "command": "explorerHidePresets.addExactRule",
+        "title": "Add Exact Rule"
+      },
+      {
+        "command": "explorerHidePresets.removeRule",
+        "title": "Remove Rule",
+        "icon": "$(close)"
+      },
+      {
+        "command": "explorerHidePresets.rebuildFilesExclude",
+        "title": "Rebuild Hidden State",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "explorerHidePresets.restoreFilesExcludeBackup",
+        "title": "Restore files.exclude Backup"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "explorerHidePresetsView",
+          "name": "Hide Presets",
+          "icon": "$(eye-closed)",
+          "contextualTitle": "Explorer Hide Presets"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "explorerHidePresetsView",
+        "contents": "No folder is open.\n[Open Folder](command:vscode.openFolder)",
+        "when": "workbenchState == empty"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "explorerHidePresets.hideInExplorer",
+          "when": "resourceScheme == file",
+          "group": "7_modification"
+        },
+        {
+          "command": "explorerHidePresets.hideInPreset",
+          "when": "resourceScheme == file",
+          "group": "7_modification"
+        },
+        {
+          "command": "explorerHidePresets.unhideInExplorer",
+          "when": "resourceScheme == file",
+          "group": "7_modification"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "explorerHidePresets.createPreset",
+          "when": "view == explorerHidePresetsView",
+          "group": "navigation"
+        },
+        {
+          "command": "explorerHidePresets.rebuildFilesExclude",
+          "when": "view == explorerHidePresetsView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "explorerHidePresets.enablePreset",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset-disabled/",
+          "group": "inline"
+        },
+        {
+          "command": "explorerHidePresets.disablePreset",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset-enabled/",
+          "group": "inline"
+        },
+        {
+          "command": "explorerHidePresets.switchToPreset",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset/"
+        },
+        {
+          "command": "explorerHidePresets.renamePreset",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset/ && viewItem != preset-enabled-manual && viewItem != preset-disabled-manual"
+        },
+        {
+          "command": "explorerHidePresets.deletePreset",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset/ && viewItem != preset-enabled-manual && viewItem != preset-disabled-manual"
+        },
+        {
+          "command": "explorerHidePresets.addGlobRule",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset/"
+        },
+        {
+          "command": "explorerHidePresets.addExactRule",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset/"
+        },
+        {
+          "command": "explorerHidePresets.removeRule",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^rule/",
+          "group": "inline"
+        }
+      ]
+    }
+  }
+}
