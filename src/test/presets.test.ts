@@ -8,6 +8,7 @@ import {
   disablePreset,
   switchToPreset,
   addRuleToPreset,
+  addRulesToPreset,
   removeRuleFromPreset,
   getPresetById,
 } from '../presets.js';
@@ -208,6 +209,70 @@ describe('removeRuleFromPreset', () => {
   test('throws when preset not found', () => {
     const state = stateWithManual();
     expect(() => removeRuleFromPreset(state, 'nonexistent', 0)).toThrow();
+  });
+});
+
+describe('addRulesToPreset', () => {
+  test('adds multiple rules to a preset', () => {
+    const state = stateWithManual();
+    const rules = [
+      { kind: 'exactFile' as const, path: 'src/a.ts' },
+      { kind: 'exactFile' as const, path: 'src/b.ts' },
+      { kind: 'exactFolder' as const, path: 'dist/' },
+    ];
+    const { state: result, added } = addRulesToPreset(state, MANUAL_PRESET_ID, rules);
+    expect(getPresetById(result, MANUAL_PRESET_ID)!.rules).toHaveLength(3);
+    expect(added).toBe(3);
+  });
+
+  test('skips duplicate rules already in preset', () => {
+    let state = stateWithManual();
+    const existingRule = { kind: 'exactFile' as const, path: 'src/a.ts' };
+    state = addRuleToPreset(state, MANUAL_PRESET_ID, existingRule);
+
+    const rules = [
+      { kind: 'exactFile' as const, path: 'src/a.ts' }, // duplicate
+      { kind: 'exactFile' as const, path: 'src/b.ts' }, // new
+    ];
+    const { state: result, added } = addRulesToPreset(state, MANUAL_PRESET_ID, rules);
+    expect(getPresetById(result, MANUAL_PRESET_ID)!.rules).toHaveLength(2);
+    expect(added).toBe(1);
+  });
+
+  test('skips duplicates within the batch itself', () => {
+    const state = stateWithManual();
+    const rules = [
+      { kind: 'exactFile' as const, path: 'src/a.ts' },
+      { kind: 'exactFile' as const, path: 'src/a.ts' }, // duplicate within batch
+    ];
+    const { state: result, added } = addRulesToPreset(state, MANUAL_PRESET_ID, rules);
+    expect(getPresetById(result, MANUAL_PRESET_ID)!.rules).toHaveLength(1);
+    expect(added).toBe(1);
+  });
+
+  test('returns added=0 when all rules are duplicates', () => {
+    let state = stateWithManual();
+    const rule = { kind: 'exactFile' as const, path: 'src/a.ts' };
+    state = addRuleToPreset(state, MANUAL_PRESET_ID, rule);
+
+    const rules = [{ kind: 'exactFile' as const, path: 'src/a.ts' }];
+    const { state: result, added } = addRulesToPreset(state, MANUAL_PRESET_ID, rules);
+    expect(getPresetById(result, MANUAL_PRESET_ID)!.rules).toHaveLength(1);
+    expect(added).toBe(0);
+  });
+
+  test('throws when preset not found', () => {
+    const state = stateWithManual();
+    const rules = [{ kind: 'exactFile' as const, path: 'src/a.ts' }];
+    expect(() => addRulesToPreset(state, 'nonexistent', rules)).toThrow();
+  });
+
+  test('returns new state object (immutability)', () => {
+    const state = stateWithManual();
+    const rules = [{ kind: 'exactFile' as const, path: 'src/a.ts' }];
+    const { state: result } = addRulesToPreset(state, MANUAL_PRESET_ID, rules);
+    expect(result).not.toBe(state);
+    expect(getPresetById(state, MANUAL_PRESET_ID)!.rules).toHaveLength(0);
   });
 });
 

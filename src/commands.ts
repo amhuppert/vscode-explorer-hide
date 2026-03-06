@@ -11,6 +11,7 @@ import {
   disablePreset,
   switchToPreset,
   addRuleToPreset,
+  addRulesToPreset,
   removeRuleFromPreset,
 } from './presets.js';
 import { materializeActiveRules } from './materialization.js';
@@ -67,42 +68,61 @@ export function registerCommands(
   context: vscode.ExtensionContext,
   refreshTreeView: () => void
 ): void {
-  // 1. Hide in Explorer
+  // 1. Hide in Explorer (supports multi-select)
   context.subscriptions.push(
-    vscode.commands.registerCommand('explorerHidePresets.hideInExplorer', async (uri: vscode.Uri) => {
+    vscode.commands.registerCommand('explorerHidePresets.hideInExplorer', async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
       if (!checkWorkspace()) return;
-      const folder = getFolderForUri(uri);
-      if (!folder) return;
 
-      let state = loadState(folder);
-      state = ensureManualPreset(state);
-      await backupExistingFilesExclude(folder);
+      const targets = uris && uris.length > 0 ? uris : [uri];
 
-      const stat = await vscode.workspace.fs.stat(uri);
-      const isDirectory = (stat.type & vscode.FileType.Directory) !== 0;
-      const relativePath = vscode.workspace.asRelativePath(uri, false);
-      const rule = isDirectory
-        ? createExactFolderRule(relativePath)
-        : createExactFileRule(relativePath);
-
-      try {
-        state = addRuleToPreset(state, MANUAL_PRESET_ID, rule);
-      } catch {
-        // Rule already exists — silently ignore
-        return;
+      // Group URIs by workspace folder
+      const byFolder = new Map<string, { folder: vscode.WorkspaceFolder; uris: vscode.Uri[] }>();
+      for (const target of targets) {
+        const folder = getFolderForUri(target);
+        if (!folder) continue;
+        const key = folder.uri.toString();
+        if (!byFolder.has(key)) {
+          byFolder.set(key, { folder, uris: [] });
+        }
+        byFolder.get(key)!.uris.push(target);
       }
 
-      await saveState(folder, state);
-      await materializeAndWrite(folder, state);
+      for (const { folder, uris: folderUris } of byFolder.values()) {
+        let state = loadState(folder);
+        state = ensureManualPreset(state);
+        await backupExistingFilesExclude(folder);
+
+        const rules: import('./types.js').Rule[] = [];
+        for (const target of folderUris) {
+          const stat = await vscode.workspace.fs.stat(target);
+          const isDirectory = (stat.type & vscode.FileType.Directory) !== 0;
+          const relativePath = vscode.workspace.asRelativePath(target, false);
+          rules.push(
+            isDirectory
+              ? createExactFolderRule(relativePath)
+              : createExactFileRule(relativePath)
+          );
+        }
+
+        const { state: newState, added } = addRulesToPreset(state, MANUAL_PRESET_ID, rules);
+        if (added === 0) continue;
+
+        state = newState;
+        await saveState(folder, state);
+        await materializeAndWrite(folder, state);
+      }
+
       refreshTreeView();
     })
   );
 
-  // 2. Hide in Preset...
+  // 2. Hide in Preset... (supports multi-select)
   context.subscriptions.push(
-    vscode.commands.registerCommand('explorerHidePresets.hideInPreset', async (uri: vscode.Uri) => {
+    vscode.commands.registerCommand('explorerHidePresets.hideInPreset', async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
       if (!checkWorkspace()) return;
-      const folder = getFolderForUri(uri);
+
+      const targets = uris && uris.length > 0 ? uris : [uri];
+      const folder = getFolderForUri(targets[0]);
       if (!folder) return;
 
       let state = loadState(folder);
@@ -132,19 +152,24 @@ export function registerCommands(
         targetPresetId = pick.presetId;
       }
 
-      const stat = await vscode.workspace.fs.stat(uri);
-      const isDirectory = (stat.type & vscode.FileType.Directory) !== 0;
-      const relativePath = vscode.workspace.asRelativePath(uri, false);
-      const rule = isDirectory
-        ? createExactFolderRule(relativePath)
-        : createExactFileRule(relativePath);
+      const rules: import('./types.js').Rule[] = [];
+      for (const target of targets) {
+        const stat = await vscode.workspace.fs.stat(target);
+        const isDirectory = (stat.type & vscode.FileType.Directory) !== 0;
+        const relativePath = vscode.workspace.asRelativePath(target, false);
+        rules.push(
+          isDirectory
+            ? createExactFolderRule(relativePath)
+            : createExactFileRule(relativePath)
+        );
+      }
 
-      try {
-        state = addRuleToPreset(state, targetPresetId, rule);
-      } catch {
-        vscode.window.showInformationMessage('Rule already exists in this preset.');
+      const { state: newState, added } = addRulesToPreset(state, targetPresetId, rules);
+      if (added === 0) {
+        vscode.window.showInformationMessage('All selected items already exist in this preset.');
         return;
       }
+      state = newState;
 
       await saveState(folder, state);
       if (state.presets.some(p => p.enabled)) {

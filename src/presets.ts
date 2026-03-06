@@ -125,6 +125,36 @@ export function addRuleToPreset(
   };
 }
 
+export function addRulesToPreset(
+  state: WorkspaceFolderState,
+  presetId: string,
+  rules: Rule[]
+): { state: WorkspaceFolderState; added: number } {
+  const preset = state.presets.find(p => p.id === presetId);
+  if (!preset) {
+    throw new Error(`Preset not found: ${presetId}`);
+  }
+
+  const newRules: Rule[] = [];
+  const combined = [...preset.rules];
+  for (const rule of rules) {
+    if (!isDuplicateRule(rule, combined)) {
+      combined.push(rule);
+      newRules.push(rule);
+    }
+  }
+
+  return {
+    state: {
+      ...state,
+      presets: state.presets.map(p =>
+        p.id === presetId ? { ...p, rules: [...p.rules, ...newRules] } : p
+      ),
+    },
+    added: newRules.length,
+  };
+}
+
 export function removeRuleFromPreset(
   state: WorkspaceFolderState,
   presetId: string,

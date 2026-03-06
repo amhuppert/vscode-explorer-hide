@@ -23,8 +23,8 @@ export class PresetNode extends vscode.TreeItem {
 
     this.description = preset.enabled ? 'active' : undefined;
     this.iconPath = preset.enabled
-      ? new vscode.ThemeIcon('eye-closed')
-      : new vscode.ThemeIcon('eye');
+      ? new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.green'))
+      : new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('disabledForeground'));
     this.tooltip = `${preset.name} (${preset.enabled ? 'enabled' : 'disabled'}) - ${preset.rules.length} rules`;
   }
 }
