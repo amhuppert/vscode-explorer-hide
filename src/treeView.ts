@@ -133,8 +133,8 @@ export class HidePresetsTreeProvider implements vscode.TreeDataProvider<vscode.T
     return [];
   }
 
-  private getItemsForFolder(folder: vscode.WorkspaceFolder): vscode.TreeItem[] {
-    const state = loadState(folder);
+  private async getItemsForFolder(folder: vscode.WorkspaceFolder): Promise<vscode.TreeItem[]> {
+    const state = await loadState(folder);
     const items: vscode.TreeItem[] = [];
     items.push(new InvertStatusNode(!!state.inverted, folder));
     items.push(...state.presets.map(p => new PresetNode(p, folder, state)));

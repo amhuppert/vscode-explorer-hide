@@ -26,29 +26,6 @@
     "@types/bun": "latest"
   },
   "contributes": {
-    "configuration": {
-      "title": "Explorer Hide Presets",
-      "properties": {
-        "explorerHidePresets.presets": {
-          "type": "array",
-          "default": [],
-          "scope": "resource",
-          "description": "Preset definitions for hiding files and folders in Explorer"
-        },
-        "explorerHidePresets.filesExcludeBackup": {
-          "type": "object",
-          "default": null,
-          "scope": "resource",
-          "description": "Backup of the original files.exclude setting before the extension took control"
-        },
-        "explorerHidePresets.inverted": {
-          "type": "boolean",
-          "default": false,
-          "scope": "resource",
-          "description": "When true, rules define what to SHOW instead of what to hide"
-        }
-      }
-    },
     "commands": [
       {
         "command": "explorerHidePresets.hideInExplorer",

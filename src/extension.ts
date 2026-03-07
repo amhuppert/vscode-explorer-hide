@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { HidePresetsTreeProvider, createTreeView } from './treeView.js';
 import { registerCommands } from './commands.js';
-import { loadState, saveState, backupExistingFilesExclude, writeFilesExclude, listWorkspaceRootEntries } from './state.js';
+import { loadState, saveState, backupExistingFilesExclude, writeFilesExclude, listWorkspaceRootEntries, migrateFromSettings } from './state.js';
 import { ensureManualPreset } from './presets.js';
 import { materializeActiveRules, materializeInvertedRules } from './materialization.js';
 
@@ -19,14 +19,6 @@ export function activate(context: vscode.ExtensionContext) {
       treeProvider.refresh();
     })
   );
-
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('explorerHidePresets')) {
-        treeProvider.refresh();
-      }
-    })
-  );
 }
 
 async function initializeAllFolders(): Promise<void> {
@@ -35,9 +27,10 @@ async function initializeAllFolders(): Promise<void> {
 
   for (const folder of folders) {
     try {
+      await migrateFromSettings(folder);
       await backupExistingFilesExclude(folder);
 
-      let state = loadState(folder);
+      let state = await loadState(folder);
       state = ensureManualPreset(state);
       await saveState(folder, state);
 

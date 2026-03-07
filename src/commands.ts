@@ -96,7 +96,7 @@ export function registerCommands(
       }
 
       for (const { folder, uris: folderUris } of byFolder.values()) {
-        let state = loadState(folder);
+        let state = await loadState(folder);
         state = ensureManualPreset(state);
         await backupExistingFilesExclude(folder);
 
@@ -133,7 +133,7 @@ export function registerCommands(
       const folder = getFolderForUri(targets[0]);
       if (!folder) return;
 
-      let state = loadState(folder);
+      let state = await loadState(folder);
       state = ensureManualPreset(state);
 
       const createNewLabel = '+ Create New Preset...';
@@ -194,7 +194,7 @@ export function registerCommands(
       const folder = getFolderForUri(uri);
       if (!folder) return;
 
-      let state = loadState(folder);
+      let state = await loadState(folder);
 
       const stat = await vscode.workspace.fs.stat(uri);
       const isDirectory = (stat.type & vscode.FileType.Directory) !== 0;
@@ -237,7 +237,7 @@ export function registerCommands(
       });
       if (!name) return;
 
-      let state = loadState(folder);
+      let state = await loadState(folder);
       const result = createPreset(state, name);
       state = result.state;
       await saveState(folder, state);
@@ -256,7 +256,7 @@ export function registerCommands(
       });
       if (!newName) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       state = renamePreset(state, node.preset.id, newName);
       await saveState(node.folder, state);
       refreshTreeView();
@@ -275,7 +275,7 @@ export function registerCommands(
       );
       if (answer !== 'Delete') return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       state = deletePreset(state, node.preset.id);
       await saveState(node.folder, state);
       await materializeAndWrite(node.folder, state);
@@ -288,7 +288,7 @@ export function registerCommands(
     vscode.commands.registerCommand('explorerHidePresets.enablePreset', async (node: { folder: vscode.WorkspaceFolder; preset: Preset }) => {
       if (!checkWorkspace()) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       state = enablePreset(state, node.preset.id);
       await saveState(node.folder, state);
       await materializeAndWrite(node.folder, state);
@@ -301,7 +301,7 @@ export function registerCommands(
     vscode.commands.registerCommand('explorerHidePresets.disablePreset', async (node: { folder: vscode.WorkspaceFolder; preset: Preset }) => {
       if (!checkWorkspace()) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       state = disablePreset(state, node.preset.id);
       await saveState(node.folder, state);
       await materializeAndWrite(node.folder, state);
@@ -314,7 +314,7 @@ export function registerCommands(
     vscode.commands.registerCommand('explorerHidePresets.switchToPreset', async (node: { folder: vscode.WorkspaceFolder; preset: Preset }) => {
       if (!checkWorkspace()) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       state = switchToPreset(state, node.preset.id);
       await saveState(node.folder, state);
       await materializeAndWrite(node.folder, state);
@@ -333,7 +333,7 @@ export function registerCommands(
       });
       if (!pattern) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       try {
         const rule = createGlobRule(pattern);
         state = addRuleToPreset(state, node.preset.id, rule);
@@ -368,7 +368,7 @@ export function registerCommands(
       );
       if (!typeChoice) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       const rule = typeChoice.label === 'Folder'
         ? createExactFolderRule(path)
         : createExactFileRule(path);
@@ -394,7 +394,7 @@ export function registerCommands(
     vscode.commands.registerCommand('explorerHidePresets.removeRule', async (node: { folder: vscode.WorkspaceFolder; preset: Preset; ruleIndex: number }) => {
       if (!checkWorkspace()) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       state = removeRuleFromPreset(state, node.preset.id, node.ruleIndex);
       await saveState(node.folder, state);
       await materializeAndWrite(node.folder, state);
@@ -407,7 +407,7 @@ export function registerCommands(
     vscode.commands.registerCommand('explorerHidePresets.setPresetExtends', async (node: { folder: vscode.WorkspaceFolder; preset: Preset }) => {
       if (!checkWorkspace()) return;
 
-      let state = loadState(node.folder);
+      let state = await loadState(node.folder);
       const otherPresets = state.presets.filter(p => p.id !== node.preset.id);
       if (otherPresets.length === 0) {
         vscode.window.showInformationMessage('No other presets available to extend.');
@@ -457,7 +457,7 @@ export function registerCommands(
       }
       if (!folder) return;
 
-      let state = loadState(folder);
+      let state = await loadState(folder);
       state = { ...state, inverted: !state.inverted };
       await saveState(folder, state);
       await materializeAndWrite(folder, state);
@@ -472,7 +472,7 @@ export function registerCommands(
       if (!folders) return;
 
       for (const folder of folders) {
-        const state = loadState(folder);
+        const state = await loadState(folder);
         await materializeAndWrite(folder, state);
       }
       refreshTreeView();
