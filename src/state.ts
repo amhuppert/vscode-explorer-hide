@@ -6,9 +6,13 @@ export function loadState(folder: vscode.WorkspaceFolder): WorkspaceFolderState 
   const config = vscode.workspace.getConfiguration('explorerHidePresets', folder.uri);
   const presets = config.get<Preset[]>('presets', []);
   const backup = config.get<Record<string, boolean> | undefined>('filesExcludeBackup', undefined);
+  const inverted = config.get<boolean>('inverted', false);
   let state: WorkspaceFolderState = { presets };
   if (backup !== undefined) {
     state.backup = backup;
+  }
+  if (inverted) {
+    state.inverted = true;
   }
   state = ensureManualPreset(state);
   return state;
@@ -23,6 +27,7 @@ export async function saveState(
   if (state.backup !== undefined) {
     await config.update('filesExcludeBackup', state.backup, vscode.ConfigurationTarget.WorkspaceFolder);
   }
+  await config.update('inverted', state.inverted ?? false, vscode.ConfigurationTarget.WorkspaceFolder);
 }
 
 export async function backupExistingFilesExclude(
@@ -72,4 +77,14 @@ export function getWorkspaceFolderForUri(
   uri: vscode.Uri
 ): vscode.WorkspaceFolder | undefined {
   return vscode.workspace.getWorkspaceFolder(uri);
+}
+
+export async function listWorkspaceRootEntries(
+  folder: vscode.WorkspaceFolder
+): Promise<string[]> {
+  const entries = await vscode.workspace.fs.readDirectory(folder.uri);
+  return entries.map(([name, type]) => {
+    const isDir = (type & vscode.FileType.Directory) !== 0;
+    return isDir ? `${name}/` : name;
+  });
 }

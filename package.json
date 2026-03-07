@@ -36,6 +36,12 @@
           "default": null,
           "scope": "resource",
           "description": "Backup of the original files.exclude setting before the extension took control"
+        },
+        "explorerHidePresets.inverted": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "description": "When true, rules define what to SHOW instead of what to hide"
         }
       }
     },
@@ -100,6 +106,15 @@
       {
         "command": "explorerHidePresets.restoreFilesExcludeBackup",
         "title": "Restore files.exclude Backup"
+      },
+      {
+        "command": "explorerHidePresets.setPresetExtends",
+        "title": "Set Extends..."
+      },
+      {
+        "command": "explorerHidePresets.toggleInvert",
+        "title": "Toggle Invert Mode",
+        "icon": "$(arrow-swap)"
       }
     ],
     "views": {
@@ -145,6 +160,11 @@
           "group": "navigation"
         },
         {
+          "command": "explorerHidePresets.toggleInvert",
+          "when": "view == explorerHidePresetsView",
+          "group": "navigation"
+        },
+        {
           "command": "explorerHidePresets.rebuildFilesExclude",
           "when": "view == explorerHidePresetsView",
           "group": "navigation"
@@ -171,6 +191,10 @@
         },
         {
           "command": "explorerHidePresets.deletePreset",
+          "when": "view == explorerHidePresetsView && viewItem =~ /^preset/ && viewItem != preset-enabled-manual && viewItem != preset-disabled-manual"
+        },
+        {
+          "command": "explorerHidePresets.setPresetExtends",
           "when": "view == explorerHidePresetsView && viewItem =~ /^preset/ && viewItem != preset-enabled-manual && viewItem != preset-disabled-manual"
         },
         {

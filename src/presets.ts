@@ -183,3 +183,69 @@ export function getPresetById(
 ): Preset | undefined {
   return state.presets.find(p => p.id === presetId);
 }
+
+export function setPresetExtends(
+  state: WorkspaceFolderState,
+  presetId: string,
+  parentIds: string[]
+): WorkspaceFolderState {
+  if (!state.presets.some(p => p.id === presetId)) {
+    throw new Error(`Preset not found: ${presetId}`);
+  }
+
+  // Validate: apply the change tentatively and check for cycles
+  const tentative: WorkspaceFolderState = {
+    ...state,
+    presets: state.presets.map(p =>
+      p.id === presetId ? { ...p, extends: parentIds } : p
+    ),
+  };
+
+  // Attempt to resolve — will throw on cycle
+  resolvePresetRules(tentative, presetId);
+
+  return tentative;
+}
+
+export function resolvePresetRules(
+  state: WorkspaceFolderState,
+  presetId: string,
+  ancestorPath: Set<string> = new Set()
+): Rule[] {
+  const preset = state.presets.find(p => p.id === presetId);
+  if (!preset) {
+    if (ancestorPath.size > 0) {
+      // Called from recursion — parent references a non-existent preset, skip silently
+      return [];
+    }
+    throw new Error(`Preset not found: ${presetId}`);
+  }
+
+  if (ancestorPath.has(presetId)) {
+    throw new Error(`Cycle detected in preset inheritance: ${presetId}`);
+  }
+  const childPath = new Set(ancestorPath);
+  childPath.add(presetId);
+
+  const inheritedRules: Rule[] = [];
+  if (preset.extends && preset.extends.length > 0) {
+    for (const parentId of preset.extends) {
+      const parentRules = resolvePresetRules(state, parentId, childPath);
+      for (const rule of parentRules) {
+        if (!isDuplicateRule(rule, inheritedRules)) {
+          inheritedRules.push(rule);
+        }
+      }
+    }
+  }
+
+  // Add own rules, deduplicating against inherited
+  const combined = [...inheritedRules];
+  for (const rule of preset.rules) {
+    if (!isDuplicateRule(rule, combined)) {
+      combined.push(rule);
+    }
+  }
+
+  return combined;
+}

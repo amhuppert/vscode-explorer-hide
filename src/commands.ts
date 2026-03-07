@@ -13,8 +13,9 @@ import {
   addRuleToPreset,
   addRulesToPreset,
   removeRuleFromPreset,
+  setPresetExtends,
 } from './presets.js';
-import { materializeActiveRules } from './materialization.js';
+import { materializeActiveRules, materializeInvertedRules } from './materialization.js';
 import { isHiddenByOwnedExactRule, removeExactRulesForPath } from './unhide.js';
 import {
   loadState,
@@ -23,6 +24,7 @@ import {
   writeFilesExclude,
   getWorkspaceFolderForUri,
   restoreBackup,
+  listWorkspaceRootEntries,
 } from './state.js';
 import type { PresetNode, RuleNode, FolderNode } from './treeView.js';
 
@@ -32,7 +34,13 @@ async function materializeAndWrite(
   folder: vscode.WorkspaceFolder,
   state: WorkspaceFolderState
 ): Promise<void> {
-  const excludeMap = materializeActiveRules(state);
+  let excludeMap: Record<string, boolean>;
+  if (state.inverted) {
+    const entries = await listWorkspaceRootEntries(folder);
+    excludeMap = materializeInvertedRules(state, entries);
+  } else {
+    excludeMap = materializeActiveRules(state);
+  }
   await writeFilesExclude(folder, excludeMap);
 }
 
@@ -394,7 +402,70 @@ export function registerCommands(
     })
   );
 
-  // 13. Rebuild files.exclude
+  // 13. Set Preset Extends
+  context.subscriptions.push(
+    vscode.commands.registerCommand('explorerHidePresets.setPresetExtends', async (node: { folder: vscode.WorkspaceFolder; preset: Preset }) => {
+      if (!checkWorkspace()) return;
+
+      let state = loadState(node.folder);
+      const otherPresets = state.presets.filter(p => p.id !== node.preset.id);
+      if (otherPresets.length === 0) {
+        vscode.window.showInformationMessage('No other presets available to extend.');
+        return;
+      }
+
+      const currentExtends = new Set(node.preset.extends ?? []);
+      const items = otherPresets.map(p => ({
+        label: p.name,
+        presetId: p.id,
+        picked: currentExtends.has(p.id),
+      }));
+
+      const picks = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Select presets to extend (inherit rules from)',
+        canPickMany: true,
+      });
+      if (!picks) return;
+
+      const parentIds = picks.map(p => p.presetId);
+      try {
+        state = setPresetExtends(state, node.preset.id, parentIds);
+      } catch (err) {
+        vscode.window.showErrorMessage((err as Error).message);
+        return;
+      }
+
+      await saveState(node.folder, state);
+      await materializeAndWrite(node.folder, state);
+      refreshTreeView();
+    })
+  );
+
+  // 14. Toggle Invert Mode
+  context.subscriptions.push(
+    vscode.commands.registerCommand('explorerHidePresets.toggleInvert', async (node?: TreeNode) => {
+      const folders = checkWorkspace();
+      if (!folders) return;
+
+      let folder: vscode.WorkspaceFolder | undefined;
+      if (node && 'workspaceFolder' in node) {
+        folder = node.workspaceFolder;
+      } else if (node && 'folder' in node) {
+        folder = (node as { folder: vscode.WorkspaceFolder }).folder;
+      } else {
+        folder = await pickWorkspaceFolder(folders);
+      }
+      if (!folder) return;
+
+      let state = loadState(folder);
+      state = { ...state, inverted: !state.inverted };
+      await saveState(folder, state);
+      await materializeAndWrite(folder, state);
+      refreshTreeView();
+    })
+  );
+
+  // 15. Rebuild files.exclude
   context.subscriptions.push(
     vscode.commands.registerCommand('explorerHidePresets.rebuildFilesExclude', async () => {
       const folders = checkWorkspace();

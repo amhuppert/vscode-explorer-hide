@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { HidePresetsTreeProvider, createTreeView } from './treeView.js';
 import { registerCommands } from './commands.js';
-import { loadState, saveState, backupExistingFilesExclude, writeFilesExclude } from './state.js';
+import { loadState, saveState, backupExistingFilesExclude, writeFilesExclude, listWorkspaceRootEntries } from './state.js';
 import { ensureManualPreset } from './presets.js';
-import { materializeActiveRules } from './materialization.js';
+import { materializeActiveRules, materializeInvertedRules } from './materialization.js';
 
 export function activate(context: vscode.ExtensionContext) {
   const treeProvider = new HidePresetsTreeProvider();
@@ -41,7 +41,13 @@ async function initializeAllFolders(): Promise<void> {
       state = ensureManualPreset(state);
       await saveState(folder, state);
 
-      const excludeMap = materializeActiveRules(state);
+      let excludeMap: Record<string, boolean>;
+      if (state.inverted) {
+        const entries = await listWorkspaceRootEntries(folder);
+        excludeMap = materializeInvertedRules(state, entries);
+      } else {
+        excludeMap = materializeActiveRules(state);
+      }
       await writeFilesExclude(folder, excludeMap);
     } catch (err) {
       console.error(`Explorer Hide Presets: Failed to initialize for ${folder.name}:`, err);

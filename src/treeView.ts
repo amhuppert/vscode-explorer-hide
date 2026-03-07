@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import type { Rule, Preset } from './types.js';
+import type { Rule, Preset, WorkspaceFolderState } from './types.js';
 import { loadState } from './state.js';
+import { getPresetById } from './presets.js';
 
 export class FolderNode extends vscode.TreeItem {
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
@@ -13,7 +14,8 @@ export class FolderNode extends vscode.TreeItem {
 export class PresetNode extends vscode.TreeItem {
   constructor(
     public readonly preset: Preset,
-    public readonly folder: vscode.WorkspaceFolder
+    public readonly folder: vscode.WorkspaceFolder,
+    state?: WorkspaceFolderState
   ) {
     super(preset.name, vscode.TreeItemCollapsibleState.Collapsed);
 
@@ -21,11 +23,28 @@ export class PresetNode extends vscode.TreeItem {
     const enabledPrefix = preset.enabled ? 'preset-enabled' : 'preset-disabled';
     this.contextValue = `${enabledPrefix}${manualSuffix}`;
 
-    this.description = preset.enabled ? 'active' : undefined;
+    const descParts: string[] = [];
+    if (preset.enabled) descParts.push('active');
+    if (preset.extends && preset.extends.length > 0 && state) {
+      const parentNames = preset.extends
+        .map(id => getPresetById(state, id)?.name ?? id)
+        .join(', ');
+      descParts.push(`extends ${parentNames}`);
+    }
+    this.description = descParts.length > 0 ? descParts.join(' · ') : undefined;
+
     this.iconPath = preset.enabled
       ? new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('charts.green'))
       : new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor('disabledForeground'));
-    this.tooltip = `${preset.name} (${preset.enabled ? 'enabled' : 'disabled'}) - ${preset.rules.length} rules`;
+
+    let tooltip = `${preset.name} (${preset.enabled ? 'enabled' : 'disabled'}) - ${preset.rules.length} rules`;
+    if (preset.extends && preset.extends.length > 0 && state) {
+      const parentNames = preset.extends
+        .map(id => getPresetById(state, id)?.name ?? id)
+        .join(', ');
+      tooltip += `\nExtends: ${parentNames}`;
+    }
+    this.tooltip = tooltip;
   }
 }
 
@@ -55,6 +74,30 @@ export class RuleNode extends vscode.TreeItem {
   }
 }
 
+export class InvertStatusNode extends vscode.TreeItem {
+  constructor(
+    public readonly inverted: boolean,
+    public readonly folder: vscode.WorkspaceFolder
+  ) {
+    super(
+      inverted ? 'Mode: Show Only Matching' : 'Mode: Hide Matching',
+      vscode.TreeItemCollapsibleState.None
+    );
+    this.contextValue = inverted ? 'invertStatus-on' : 'invertStatus-off';
+    this.iconPath = inverted
+      ? new vscode.ThemeIcon('filter-filled', new vscode.ThemeColor('charts.yellow'))
+      : new vscode.ThemeIcon('filter');
+    this.tooltip = inverted
+      ? 'Inverted: rules define what to SHOW (click to switch back)'
+      : 'Normal: rules define what to HIDE (click to invert)';
+    this.command = {
+      command: 'explorerHidePresets.toggleInvert',
+      title: 'Toggle Invert',
+      arguments: [this],
+    };
+  }
+}
+
 export class HidePresetsTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -72,13 +115,13 @@ export class HidePresetsTreeProvider implements vscode.TreeDataProvider<vscode.T
       const folders = vscode.workspace.workspaceFolders ?? [];
       if (folders.length === 0) return [];
       if (folders.length === 1) {
-        return this.getPresetsForFolder(folders[0]);
+        return this.getItemsForFolder(folders[0]);
       }
       return folders.map(f => new FolderNode(f));
     }
 
     if (element instanceof FolderNode) {
-      return this.getPresetsForFolder(element.workspaceFolder);
+      return this.getItemsForFolder(element.workspaceFolder);
     }
 
     if (element instanceof PresetNode) {
@@ -90,9 +133,12 @@ export class HidePresetsTreeProvider implements vscode.TreeDataProvider<vscode.T
     return [];
   }
 
-  private getPresetsForFolder(folder: vscode.WorkspaceFolder): PresetNode[] {
+  private getItemsForFolder(folder: vscode.WorkspaceFolder): vscode.TreeItem[] {
     const state = loadState(folder);
-    return state.presets.map(p => new PresetNode(p, folder));
+    const items: vscode.TreeItem[] = [];
+    items.push(new InvertStatusNode(!!state.inverted, folder));
+    items.push(...state.presets.map(p => new PresetNode(p, folder, state)));
+    return items;
   }
 }
 

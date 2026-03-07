@@ -21,11 +21,13 @@ export interface Preset {
   isManual: boolean;
   enabled: boolean;
   rules: Rule[];
+  extends?: string[]; // IDs of presets this preset inherits rules from
 }
 
 export interface WorkspaceFolderState {
   presets: Preset[];
   backup?: Record<string, boolean>;
+  inverted?: boolean; // when true, rules define what to SHOW (hide everything else)
 }
 
 export const MANUAL_PRESET_ID = 'manual';
